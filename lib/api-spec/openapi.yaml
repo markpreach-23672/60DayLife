@@ -3,20 +3,27 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: 60-Day Christian Journey API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: lessons
+    description: Lesson content
+  - name: progress
+    description: User progress tracking
+  - name: users
+    description: User management
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +31,268 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  /auth/sync:
+    post:
+      operationId: syncUser
+      tags: [users]
+      summary: Sync user from auth provider to database
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncUserBody"
+      responses:
+        "200":
+          description: User synced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /lessons:
+    get:
+      operationId: getLessons
+      tags: [lessons]
+      summary: Get all lessons (metadata only, no full content)
+      responses:
+        "200":
+          description: List of lessons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LessonMeta"
+
+  /lessons/{day}:
+    get:
+      operationId: getLesson
+      tags: [lessons]
+      summary: Get a specific day's lesson with full content
+      parameters:
+        - name: day
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+      responses:
+        "200":
+          description: Full lesson content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "404":
+          description: Lesson not found
+
+  /progress:
+    get:
+      operationId: getProgress
+      tags: [progress]
+      summary: Get current user's completed days
+      responses:
+        "200":
+          description: User progress
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgressEntry"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: markDayComplete
+      tags: [progress]
+      summary: Mark a day as complete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkDayCompleteBody"
+      responses:
+        "200":
+          description: Day marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressEntry"
+        "401":
+          description: Unauthorized
+
+  /progress/{day}:
+    delete:
+      operationId: unmarkDay
+      tags: [progress]
+      summary: Unmark a day as complete
+      parameters:
+        - name: day
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Day unmarked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required:
+                  - success
+        "401":
+          description: Unauthorized
+
+  /progress/summary:
+    get:
+      operationId: getProgressSummary
+      tags: [progress]
+      summary: Get user's overall progress summary with streaks and phase breakdown
+      responses:
+        "200":
+          description: Progress summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgressSummary"
+        "401":
+          description: Unauthorized
+
+  /lessons/next:
+    get:
+      operationId: getNextLesson
+      tags: [lessons]
+      summary: Get the next lesson the user should complete
+      responses:
+        "200":
+          description: Next lesson to complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lesson"
+        "401":
+          description: Unauthorized
+
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [admin]
+      summary: Get all users with their progress (admin only)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: phase
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+      responses:
+        "200":
+          description: List of users with progress
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get aggregate enrollment and completion statistics (admin only)
+      responses:
+        "200":
+          description: Admin statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/activity:
+    get:
+      operationId: getAdminActivity
+      tags: [admin]
+      summary: Get recent user activity (signups, completions) (admin only)
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
+  /admin/emails/test:
+    post:
+      operationId: sendTestEmail
+      tags: [admin]
+      summary: Send a test lesson email (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendTestEmailBody"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                required:
+                  - success
+                  - message
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +303,340 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        clerkId:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        emailOptIn:
+          type: boolean
+      required:
+        - id
+        - clerkId
+        - email
+        - isAdmin
+        - createdAt
+        - emailOptIn
+
+    SyncUserBody:
+      type: object
+      properties:
+        clerkId:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        emailOptIn:
+          type: boolean
+      required:
+        - clerkId
+        - email
+
+    LessonMeta:
+      type: object
+      properties:
+        day:
+          type: integer
+        phase:
+          type: integer
+        phaseName:
+          type: string
+        title:
+          type: string
+        scriptureRef:
+          type: string
+      required:
+        - day
+        - phase
+        - phaseName
+        - title
+        - scriptureRef
+
+    Lesson:
+      type: object
+      properties:
+        day:
+          type: integer
+        phase:
+          type: integer
+        phaseName:
+          type: string
+        title:
+          type: string
+        scriptureRef:
+          type: string
+        scriptureText:
+          type: string
+        lessonText:
+          type: string
+        memoryHack:
+          type: string
+        challenge:
+          type: string
+        prayerStarter:
+          type: string
+      required:
+        - day
+        - phase
+        - phaseName
+        - title
+        - scriptureRef
+        - scriptureText
+        - lessonText
+        - memoryHack
+        - challenge
+        - prayerStarter
+
+    ProgressEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        day:
+          type: integer
+        completedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+      required:
+        - id
+        - userId
+        - day
+        - completedAt
+
+    MarkDayCompleteBody:
+      type: object
+      properties:
+        day:
+          type: integer
+          minimum: 1
+          maximum: 60
+        notes:
+          type: string
+          nullable: true
+      required:
+        - day
+
+    ProgressSummary:
+      type: object
+      properties:
+        totalCompleted:
+          type: integer
+        currentDay:
+          type: integer
+        currentPhase:
+          type: integer
+        currentPhaseName:
+          type: string
+        currentStreak:
+          type: integer
+        longestStreak:
+          type: integer
+        percentComplete:
+          type: number
+        phaseBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhaseProgress"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isComplete:
+          type: boolean
+      required:
+        - totalCompleted
+        - currentDay
+        - currentPhase
+        - currentPhaseName
+        - currentStreak
+        - longestStreak
+        - percentComplete
+        - phaseBreakdown
+        - isComplete
+
+    PhaseProgress:
+      type: object
+      properties:
+        phase:
+          type: integer
+        phaseName:
+          type: string
+        totalDays:
+          type: integer
+        completedDays:
+          type: integer
+        percentComplete:
+          type: number
+      required:
+        - phase
+        - phaseName
+        - totalDays
+        - completedDays
+        - percentComplete
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+          nullable: true
+        lastName:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+        emailOptIn:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        daysCompleted:
+          type: integer
+        currentDay:
+          type: integer
+        currentPhase:
+          type: integer
+        isComplete:
+          type: boolean
+        lastActivityAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - email
+        - isAdmin
+        - emailOptIn
+        - createdAt
+        - daysCompleted
+        - currentDay
+        - currentPhase
+        - isComplete
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        activeUsers:
+          type: integer
+        completedUsers:
+          type: integer
+        averageDaysCompleted:
+          type: number
+        emailOptInCount:
+          type: integer
+        enrollmentByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnrollmentDataPoint"
+        phaseDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhaseDistribution"
+        completionRate:
+          type: number
+      required:
+        - totalUsers
+        - activeUsers
+        - completedUsers
+        - averageDaysCompleted
+        - emailOptInCount
+        - enrollmentByDay
+        - phaseDistribution
+        - completionRate
+
+    EnrollmentDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        count:
+          type: integer
+      required:
+        - date
+        - count
+
+    PhaseDistribution:
+      type: object
+      properties:
+        phase:
+          type: integer
+        phaseName:
+          type: string
+        userCount:
+          type: integer
+      required:
+        - phase
+        - phaseName
+        - userCount
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [signup, completion, phase_complete, journey_complete]
+        userId:
+          type: string
+        userEmail:
+          type: string
+        userName:
+          type: string
+          nullable: true
+        detail:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - userId
+        - userEmail
+        - detail
+        - occurredAt
+
+    SendTestEmailBody:
+      type: object
+      properties:
+        email:
+          type: string
+        day:
+          type: integer
+          minimum: 1
+          maximum: 60
+      required:
+        - email
+        - day
